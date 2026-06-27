@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ b.name }} — Brand Style Guide</title>
+  <link rel="stylesheet" href="{{ font_link }}">
+  <style>
+    :root {
+      --primary: {{ colors.primary }};
+      --bg: {{ colors.bg }};
+      --accent: {{ colors.accent }};
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--primary);
+      font-family: "{{ body_font }}", system-ui, sans-serif; line-height: 1.6;
+      overflow-wrap: break-word;
+    }
+    svg { max-width: 100%; height: auto; }        /* model SVGs may set fixed width */
+    .cover .logo svg { margin: 0 auto; }
+    h1, h2, h3 { font-family: "{{ heading_font }}", Georgia, serif; line-height: 1.1; }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 0 1.5rem; }
+    .cover {
+      min-height: 70vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center;
+      gap: 1rem; padding: 4rem 1.5rem;
+    }
+    /* logo sits on a --bg plate: its palette colors may include --primary (the cover bg) */
+    .cover .logo { width: min(360px, 80vw); background: var(--bg); padding: 1.5rem; border-radius: 12px; }
+    .cover h1 { font-size: clamp(2.5rem, 8vw, 4.5rem); margin: .5rem 0 0; }
+    .cover .tagline { font-size: 1.25rem; margin: 0; }
+    .eyebrow { letter-spacing: .12em; text-transform: uppercase; font-size: .8rem;
+               color: var(--accent); margin: 0 0 .5rem; }
+    section.block { padding: 3.5rem 0; border-top: 1px solid color-mix(in srgb, var(--primary) 15%, transparent); }
+    section.block > .wrap > h2 { font-size: 2rem; margin: 0 0 1.5rem; }
+    .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+    .card { padding: 1.25rem; border: 1px solid color-mix(in srgb, var(--primary) 15%, transparent); border-radius: 8px; }
+    .card h3 { margin: 0 0 .35rem; font-size: 1.1rem; }
+    .card p { margin: 0; }
+    .swatch { border-radius: 8px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--primary) 12%, transparent); }
+    .swatch .chip { height: 90px; }
+    .swatch .meta { padding: .75rem; font-size: .85rem; }
+    .swatch .meta code { font-weight: 700; }
+    .specimen { font-family: "{{ heading_font }}", serif; font-size: 2.5rem; margin: 0 0 .25rem; }
+    .specimen-body { font-size: 1.05rem; max-width: 60ch; }
+    .do-dont { display: grid; gap: 1.5rem; grid-template-columns: 1fr 1fr; }
+    .do-dont ul { margin: .5rem 0 0; padding-left: 1.1rem; }
+    .do h3 { color: var(--accent); }
+    .sample { border-left: 4px solid var(--accent); padding: .5rem 0 .5rem 1.25rem; font-size: 1.15rem; }
+    .pills { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .pill { padding: .35rem .85rem; border-radius: 999px; background: color-mix(in srgb, var(--accent) 18%, transparent); font-size: .9rem; }
+    @media (max-width: 560px) { .do-dont { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header class="cover" style="background: var(--primary); color: var(--bg);">
+    <div class="logo">{{ b.logo.svg | safe }}</div>
+    <h1>{{ b.name }}</h1>
+    <p class="tagline">{{ b.tagline }}</p>
+  </header>
+
+  <section class="block"><div class="wrap">
+    <p class="eyebrow">Strategy</p>
+    <h2>What we stand for</h2>
+    <div class="grid">
+      <div class="card"><h3>Mission</h3><p>{{ b.mission }}</p></div>
+      <div class="card"><h3>Vision</h3><p>{{ b.vision }}</p></div>
+      <div class="card"><h3>Audience</h3><p>{{ b.audience }}</p></div>
+    </div>
+    <p style="margin-top:1.5rem; max-width:65ch;">{{ b.positioning }}</p>
+    <h3 style="margin-top:2rem;">Personality</h3>
+    <div class="pills">{% for p in b.personality %}<span class="pill">{{ p }}</span>{% endfor %}</div>
+    <h3 style="margin-top:2rem;">Values</h3>
+    <div class="grid">
+      {% for v in b['values'] %}<div class="card"><h3>{{ v.name }}</h3><p>{{ v.desc }}</p></div>{% endfor %}
+    </div>
+  </div></section>
+
+  <section class="block"><div class="wrap">
+    <p class="eyebrow">Identity</p>
+    <h2>Logo</h2>
+    <div class="card" style="text-align:center; padding:2.5rem;">{{ b.logo.svg | safe }}</div>
+    <p style="margin-top:1rem;">{{ b.logo.concept }}</p>
+    <div class="do-dont" style="margin-top:1.5rem;">
+      <div class="do"><h3>Do</h3><ul>{% for d in b.logo.usage_do %}<li>{{ d }}</li>{% endfor %}</ul></div>
+      <div><h3>Don't</h3><ul>{% for d in b.logo.usage_dont %}<li>{{ d }}</li>{% endfor %}</ul></div>
+    </div>
+  </div></section>
+
+  <section class="block"><div class="wrap">
+    <p class="eyebrow">Identity</p>
+    <h2>Color</h2>
+    <div class="grid">
+      {% for c in b.palette %}
+      <div class="swatch">
+        <div class="chip" style="background: {{ c.hex }};"></div>
+        <div class="meta"><strong>{{ c.name }}</strong> · {{ c.role }}<br><code>{{ c.hex }}</code><br>{{ c.usage }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div></section>
+
+  <section class="block"><div class="wrap">
+    <p class="eyebrow">Identity</p>
+    <h2>Typography</h2>
+    <p class="specimen" style="font-family: '{{ heading_font }}', serif;">{{ heading_font }}</p>
+    <p>{{ b.typography.heading.rationale }}</p>
+    <p class="specimen" style="font-family: '{{ body_font }}', sans-serif; font-size:1.8rem;">{{ body_font }}</p>
+    <p class="specimen-body">{{ b.typography.body.rationale }}</p>
+    {% if b.typography.scale %}<div class="pills" style="margin-top:1rem;">{% for s in b.typography.scale %}<span class="pill">{{ s }}</span>{% endfor %}</div>{% endif %}
+  </div></section>
+
+  <section class="block"><div class="wrap">
+    <p class="eyebrow">Expression</p>
+    <h2>Voice &amp; Tone</h2>
+    <p style="max-width:65ch;">{{ b.voice.summary }}</p>
+    <div class="do-dont" style="margin-top:1.5rem;">
+      <div class="do"><h3>Do</h3><ul>{% for d in b.voice.do %}<li>{{ d }}</li>{% endfor %}</ul></div>
+      <div><h3>Don't</h3><ul>{% for d in b.voice.dont %}<li>{{ d }}</li>{% endfor %}</ul></div>
+    </div>
+    <p class="sample" style="margin-top:1.5rem;">{{ b.voice.sample }}</p>
+  </div></section>
+
+  <section class="block"><div class="wrap">
+    <p class="eyebrow">Expression</p>
+    <h2>Imagery</h2>
+    <p style="max-width:65ch;">{{ b.imagery }}</p>
+  </div></section>
+
+  <section class="block"><div class="wrap">
+    <p class="eyebrow">In the wild</p>
+    <h2>Applications</h2>
+    <div class="grid">{% for a in b.applications %}<div class="card"><p>{{ a }}</p></div>{% endfor %}</div>
+  </div></section>
+</body>
+</html>

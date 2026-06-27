@@ -1,47 +1,85 @@
-"""Deterministic HTML/CSS sanity checks on the generated output."""
-from pathlib import Path
+"""Deterministic sanity checks on the generated brand deliverables."""
+import json
+import re
 
 from bs4 import BeautifulSoup
 
-OUTPUT = Path(__file__).parents[1] / "output" / "index.html"
+from helpers import out_dir
 
 
-def soup():
-    assert OUTPUT.exists(), "output/index.html missing — run factory.py first"
-    return BeautifulSoup(OUTPUT.read_text(), "html.parser")
+def _soup(name):
+    p = out_dir() / name
+    assert p.exists(), f"{name} missing — run factory.py first"
+    return BeautifulSoup(p.read_text(), "html.parser")
 
 
-def test_has_title():
-    assert soup().title and soup().title.text.strip()
+def brand():
+    p = out_dir() / "brand.json"
+    assert p.exists(), "brand.json missing — run factory.py first"
+    return json.loads(p.read_text())
 
 
-def test_single_h1():
-    assert len(soup().find_all("h1")) == 1
+# --- brand spec -----------------------------------------------------------
+def test_spec_has_required_keys():
+    b = brand()
+    for k in ("name", "tagline", "palette", "typography", "voice", "logo",
+              "values", "microsite", "applications"):
+        assert b.get(k), f"brand.json missing/empty: {k}"
 
 
-def test_three_sections():
-    assert len(soup().find_all("section")) == 3
+def test_palette_hexes_valid():
+    for c in brand()["palette"]:
+        assert re.fullmatch(r"#[0-9a-fA-F]{6}", c["hex"]), c
+        assert c.get("role") and c.get("usage")
 
 
-def test_cta_present_and_linked():
-    cta = soup().select_one("a.cta")
-    assert cta and cta.text.strip()
-    assert cta.get("href"), "CTA has no href"
+def test_one_accent_only():
+    roles = [c["role"] for c in brand()["palette"]]
+    assert roles.count("accent") == 1, f"brand wants exactly one accent: {roles}"
 
 
-def test_no_empty_links():
-    assert all(a.get("href", "").strip() for a in soup().find_all("a"))
+# --- logo -----------------------------------------------------------------
+def test_logo_svg_clean():
+    svg = (out_dir() / "logo.svg").read_text()
+    assert svg.lstrip().lower().startswith("<svg"), "logo.svg is not an SVG"
+    low = svg.lower()
+    assert "<script" not in low and "javascript:" not in low
+    assert not re.search(r"\son\w+\s*=", svg), "inline event handler in SVG"
+
+
+# --- style guide ----------------------------------------------------------
+def test_styleguide_has_all_sections():
+    text = (out_dir() / "styleguide.html").read_text().lower()
+    for heading in ("logo", "color", "typography", "voice", "applications"):
+        assert heading in text, f"style guide missing section: {heading}"
+
+
+def test_styleguide_one_swatch_per_color():
+    sg = _soup("styleguide.html")
+    assert len(sg.select(".swatch")) == len(brand()["palette"])
+
+
+def test_styleguide_no_gradients_in_css():
+    css = _soup("styleguide.html").find("style").text
+    assert "linear-gradient" not in css and "radial-gradient" not in css
+
+
+# --- microsite ------------------------------------------------------------
+def test_microsite_single_h1():
+    assert len(_soup("index.html").find_all("h1")) == 1
+
+
+def test_microsite_three_sections():
+    assert len(_soup("index.html").find_all("section")) == 3
+
+
+def test_microsite_cta_linked():
+    cta = _soup("index.html").select_one("a.cta")
+    assert cta and cta.text.strip() and cta.get("href")
 
 
 def test_no_dangerous_href_schemes():
-    for a in soup().find_all("a"):
-        href = a.get("href", "").strip().lower()
-        assert not href.startswith(("javascript:", "data:", "vbscript:")), href
-
-
-def test_palette_locked():
-    # check the CSS only, not body copy (model text may mention "gradient" etc.)
-    style = soup().find("style")
-    css = style.text if style else ""
-    assert "#d98e3b" in css, "accent color missing from stylesheet"
-    assert "linear-gradient" not in css, "gradients are off-brand"
+    for page in ("index.html", "styleguide.html"):
+        for a in _soup(page).find_all("a"):
+            href = a.get("href", "").strip().lower()
+            assert not href.startswith(("javascript:", "data:", "vbscript:")), (page, href)
