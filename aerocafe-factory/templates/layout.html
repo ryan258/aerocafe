@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }}</title>
+  <style>
+    :root {
+      --espresso: {{ espresso }};
+      --cream: {{ cream }};
+      --accent: {{ accent }};
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--cream);
+      color: var(--espresso);
+      font-family: Georgia, "Times New Roman", serif;
+      line-height: 1.6;
+    }
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 4rem 1.5rem;
+    }
+    h1 {
+      font-size: clamp(2.2rem, 6vw, 3.4rem);
+      line-height: 1.1;
+      margin: 0 0 .5rem;
+    }
+    .sub {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      font-size: 1.15rem;
+      color: var(--espresso);
+      opacity: .85;
+      margin: 0 0 3rem;
+    }
+    section {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      border-top: 1px solid color-mix(in srgb, var(--espresso) 18%, transparent);
+      padding: 1.75rem 0;
+    }
+    section h2 {
+      font-family: Georgia, serif;
+      font-size: 1.35rem;
+      margin: 0 0 .4rem;
+    }
+    section p { margin: 0; opacity: .9; }
+    .cta {
+      display: inline-block;
+      margin-top: 2.5rem;
+      padding: .85rem 1.6rem;
+      background: var(--accent);
+      color: var(--cream);
+      text-decoration: none;
+      font-family: system-ui, sans-serif;
+      font-weight: 600;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>{{ headline }}</h1>
+    <p class="sub">{{ subhead }}</p>
+    {% for s in sections %}
+    <section>
+      <h2>{{ s.title }}</h2>
+      <p>{{ s.body }}</p>
+    </section>
+    {% endfor %}
+    <a class="cta" href="{{ cta_href }}">{{ cta_text }}</a>
+  </main>
+</body>
+</html>
