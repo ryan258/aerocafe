@@ -16,6 +16,12 @@ def test_safe_svg_allows_internal_url_ref():
     assert _safe_svg(GRADIENT_SVG)  # url(#g) is an internal fragment, not external
 
 
+def test_safe_svg_allows_text_on_internal_path():
+    svg = ('<svg><defs><path id="p" d="M0 0h10"/></defs>'
+           '<text><textPath href="#p">hi</textPath></text></svg>')
+    assert _safe_svg(svg)
+
+
 def test_safe_svg_allows_filter_and_inline_style():
     svg = ('<svg><defs><filter id="s"><feGaussianBlur stdDeviation="2"/></filter>'
            '<style>.a{fill:#000;filter:url(#s)}</style></defs><rect class="a"/></svg>')

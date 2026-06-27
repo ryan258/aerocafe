@@ -106,7 +106,7 @@ def _safe_href(href) -> str:
 _SVG_OK_TAGS = {
     "svg", "g", "defs", "title", "desc", "symbol", "style", "filter",
     "path", "rect", "circle", "ellipse", "line", "polyline", "polygon",
-    "text", "tspan", "linearGradient", "radialGradient", "stop",
+    "text", "tspan", "textPath", "linearGradient", "radialGradient", "stop",
     "clipPath", "mask",
 }
 
@@ -294,6 +294,8 @@ Fail it for: guardrail violations, incoherent or generic strategy, weak/placehol
 logo, color pairings that fail WCAG 2.2 AA (text below 4.5:1), off-brand voice or copy, banned phrases,
 a weak/broken call-to-action, or missing style-guide sections. Judge both; a problem in
 either fails the suite. Feedback must be specific and actionable.
+Note: text that is part of a logo or brand name (the logotype inside the logo SVG) is
+EXEMPT from contrast requirements per WCAG 1.4.3 — do not fail the suite for it.
 
 BRAND BRIEF:
 {brand}
