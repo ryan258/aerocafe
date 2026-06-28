@@ -22,6 +22,13 @@ def test_safe_svg_allows_text_on_internal_path():
     assert _safe_svg(svg)
 
 
+def test_safe_svg_allows_internal_use_but_not_external():
+    assert _safe_svg('<svg><defs><circle id="c" r="3"/></defs><use href="#c"/></svg>')
+    import pytest as _pt
+    with _pt.raises(ValueError):
+        _safe_svg('<svg><use href="https://evil.example/x.svg#a"/></svg>')
+
+
 def test_safe_svg_allows_filter_and_inline_style():
     svg = ('<svg><defs><filter id="s"><feGaussianBlur stdDeviation="2"/></filter>'
            '<style>.a{fill:#000;filter:url(#s)}</style></defs><rect class="a"/></svg>')

@@ -54,7 +54,7 @@
   </style>
 </head>
 <body>
-  <header class="cover" style="background: var(--primary); color: var(--bg);">
+  <header class="cover" style="background: {{ colors.cover_bg }}; color: {{ colors.cover_fg }};">
     <div class="logo">{{ b.logo.svg | safe }}</div>
     <h1>{{ b.name }}</h1>
     <p class="tagline">{{ b.tagline }}</p>

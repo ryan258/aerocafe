@@ -12,8 +12,10 @@ dangerous — but the sauce is genuinely good, not a gimmick.
 - Short, quotable lines. Swagger without bro-iness.
 
 ## Visual constraints (hard guardrails)
-- Palette: built around heat — molten reds/oranges and charcoal, with ONE
-  bright accent that pops on dark. No pastels, no corporate blue.
+- Palette: built around heat. The BASE/background must be DARK — deep charcoal
+  or near-black — with molten reds/oranges and ONE bright accent that pops loudly
+  on that dark base and stays clearly legible (at least 4.5:1 against it). No
+  pastels, no corporate blue, no light or cream background.
 - Typography: a bold, characterful display face for headlines; a clean,
   no-nonsense sans for body. High contrast.
 - Energy: bold, high-contrast, a bit raw. Negative space is fine but it should

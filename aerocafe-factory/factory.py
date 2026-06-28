@@ -21,6 +21,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import unicodedata
 import urllib.error
 import urllib.request
@@ -57,8 +58,9 @@ MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemini-2.5-flash")
 MAX_ATTEMPTS = 3
 
 
-def chat(prompt: str) -> str:
-    """One OpenRouter chat completion. ponytail: plain POST, no SDK."""
+def chat(prompt: str, retries: int = 3) -> str:
+    """One OpenRouter chat completion, retrying transient 5xx/network errors.
+    ponytail: plain POST, no SDK; fixed small backoff, bump retries if the provider is flakier."""
     key = os.environ.get("OPENROUTER_API_KEY")
     if not key:
         sys.exit("OPENROUTER_API_KEY not set")
@@ -70,14 +72,23 @@ def chat(prompt: str) -> str:
         data=body,
         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
     )
-    try:
-        with urllib.request.urlopen(req, timeout=120) as r:
-            data = json.loads(r.read())
-    except urllib.error.HTTPError as e:
-        sys.exit(f"OpenRouter HTTP {e.code}: {e.read().decode(errors='replace')}")
-    if "choices" not in data:
-        raise RuntimeError(f"OpenRouter error response: {json.dumps(data)}")
-    return data["choices"][0]["message"]["content"]
+    last = ""
+    for i in range(retries):
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                data = json.loads(r.read())
+            if "choices" in data:
+                return data["choices"][0]["message"]["content"]
+            last = f"error response: {json.dumps(data)}"  # e.g. OpenRouter 502 in a 200 body
+        except urllib.error.HTTPError as e:
+            if e.code < 500:  # 4xx (bad key/request) won't fix by retrying
+                sys.exit(f"OpenRouter HTTP {e.code}: {e.read().decode(errors='replace')}")
+            last = f"HTTP {e.code}"
+        except urllib.error.URLError as e:
+            last = str(e)
+        if i < retries - 1:
+            time.sleep(2 * (i + 1))
+    raise RuntimeError(f"OpenRouter failed after {retries} tries: {last}")
 
 
 def _json_from(text: str) -> dict:
@@ -101,10 +112,11 @@ def _safe_href(href) -> str:
 
 
 # Logo-safe SVG subset (plus any "fe…" filter primitive). Anything outside it — script,
-# image, foreignObject, use, a, animate*, … — is rejected, not scrubbed, so it never
-# reaches |safe. <style> is allowed but its CSS text is scanned for external refs below.
+# image, foreignObject, a, animate*, … — is rejected, not scrubbed, so it never reaches
+# |safe. <use>/<textPath> are allowed but their href is restricted to internal #ids
+# (the attr check below); <style> is allowed but its CSS text is scanned for external refs.
 _SVG_OK_TAGS = {
-    "svg", "g", "defs", "title", "desc", "symbol", "style", "filter",
+    "svg", "g", "defs", "title", "desc", "symbol", "style", "filter", "use",
     "path", "rect", "circle", "ellipse", "line", "polyline", "polygon",
     "text", "tspan", "textPath", "linearGradient", "radialGradient", "stop",
     "clipPath", "mask",
@@ -190,6 +202,8 @@ below, design a complete, cohesive brand. Obey every guardrail in the brief.
 Palette must meet WCAG 2.2 AA contrast: the primary text color must reach at least
 4.5:1 against the background color, AND the accent must reach at least 4.5:1 against the
 background (the accent is used for button text and links). Use exactly one accent.
+Include at least one near-neutral color (a light off-white or a deep near-black, low
+saturation) intended for body text — not a saturated hue like orange or red.
 
 Return ONLY a JSON object matching this schema exactly (comments are not part of JSON):
 {SPEC_SCHEMA}
@@ -203,14 +217,23 @@ BRAND BRIEF:
 
 
 def generate_logo(spec: dict) -> str:
+    bg = _site_colors(spec["palette"])["bg"]
+    heading_font = spec["typography"]["heading"]["family"]
     prompt = f"""Design a logo for "{spec['name']}" — {spec.get('tagline','')}.
 Concept: {spec['logo'].get('concept','')}
 Use only these brand colors: {[p['hex'] for p in spec['palette']]}.
 
 Output ONE self-contained inline SVG (a wordmark or logomark). Requirements:
 - viewBox set, no external fonts/images, no <script>, no animations.
-- No @font-face, no data: URIs, no url(...) to anything but an internal #id. For
-  wordmark text use a common system font family (e.g. Georgia, Helvetica, serif).
+- No @font-face, no data: URIs, no url(...) to anything but an internal #id.
+- If the wordmark uses <text>, set font-family to the brand heading font
+  "{heading_font}" (the rendered pages load it) so the logo matches the brand —
+  do NOT substitute Helvetica/Arial or claim a font you don't actually set.
+- The wordmark/lettering MUST be clearly legible against the brand background color
+  {bg} — use light or accent fills on a dark base, never dark-on-dark. No gradient
+  that leaves letter interiors low-contrast.
+- Keep it SIMPLE: it must read cleanly at small/icon sizes. Avoid clutter — no stray
+  embers, corner marks, or piles of gradients.
 - Clean, scalable, looks designed — not a placeholder.
 Return ONLY the <svg>...</svg>, nothing else."""
     return _safe_svg(chat(prompt))
@@ -228,17 +251,30 @@ def contrast_ratio(c1: str, c2: str) -> float:
     return (max(l1, l2) + 0.05) / (min(l1, l2) + 0.05)
 
 
+def _chroma(hexcolor: str) -> int:
+    r, g, b = (int(hexcolor[i:i + 2], 16) for i in (1, 3, 5))
+    return max(r, g, b) - min(r, g, b)  # 0 = neutral (gray/white/black), high = saturated hue
+
+
 def _site_colors(palette: list[dict]) -> dict:
     by_role = {p.get("role"): p["hex"] for p in palette}
     bg = by_role.get("background", palette[-1]["hex"])
-    # Text color = the most readable non-accent palette color on bg, NOT just role=="primary":
-    # a dark-first brand's "primary" can itself be dark, giving invisible body text (WCAG 1.4.3).
-    text = max((p["hex"] for p in palette if p.get("role") != "accent"),
-               key=lambda h: contrast_ratio(h, bg), default=palette[0]["hex"])
+    cands = [p["hex"] for p in palette if p.get("role") != "accent"] or [palette[0]["hex"]]
+    # Body text: prefer the most NEUTRAL color that still clears AA on bg, so a dark brand
+    # with few neutrals doesn't get garish hued body text (e.g. orange on charcoal). Fall
+    # back to the most readable color if none clear AA (the a11y gate then flags it).
+    readable = [h for h in cands if contrast_ratio(h, bg) >= 4.5]
+    text = (min(readable, key=lambda h: (_chroma(h), -contrast_ratio(h, bg)))
+            if readable else max(cands, key=lambda h: contrast_ratio(h, bg)))
+    # Cover band: darker of text/bg as background, lighter as foreground, so the style-guide
+    # hero respects a dark-first brand instead of inverting to a light band.
+    dark, light = sorted((text, bg), key=_relative_luminance)
     return {
         "primary": text,
         "bg": bg,
         "accent": by_role.get("accent", by_role.get("secondary", palette[0]["hex"])),
+        "cover_bg": dark,
+        "cover_fg": light,
     }
 
 
@@ -290,12 +326,13 @@ def judge(brand: str, guide_html: str, site_html: str) -> tuple[bool, str]:
     prompt = f"""You are a strict brand design director. Judge BOTH deliverables — the
 style guide and the microsite — against the brief. Reply ONLY with JSON:
 {{"pass": true|false, "feedback": "..."}}.
-Fail it for: guardrail violations, incoherent or generic strategy, weak/placeholder
-logo, color pairings that fail WCAG 2.2 AA (text below 4.5:1), off-brand voice or copy, banned phrases,
-a weak/broken call-to-action, or missing style-guide sections. Judge both; a problem in
-either fails the suite. Feedback must be specific and actionable.
-Note: text that is part of a logo or brand name (the logotype inside the logo SVG) is
-EXEMPT from contrast requirements per WCAG 1.4.3 — do not fail the suite for it.
+Fail it for: guardrail violations, incoherent or generic strategy, a weak/placeholder
+or amateur logo, off-brand voice or copy, banned phrases, a weak/broken call-to-action,
+or missing style-guide sections. Judge both; a problem in either fails the suite.
+Feedback must be specific and actionable.
+Do NOT evaluate color contrast or WCAG ratios: page/text contrast is already verified by a
+deterministic automated test that passed before you were called. Do not estimate ratios or
+fail on contrast — trust that test and focus on strategy, voice, copy, guardrails, and logo craft.
 
 BRAND BRIEF:
 {brand}
@@ -333,7 +370,12 @@ def main():
             feedback = f"Automated tests failed:\n{log}"
             continue
 
-        passed, fb = judge(brand, guide, site)
+        try:
+            passed, fb = judge(brand, guide, site)
+        except Exception as e:  # judge API/parse glitch — brand already passed tests, retry it
+            print(f"judge errored, retrying: {e}")
+            feedback = None
+            continue
         print(f"judge: {'PASS' if passed else 'FAIL'} — {fb}")
         if passed:
             print(f"\n✅ Verified brand suite ready in {brand_dir}/")
