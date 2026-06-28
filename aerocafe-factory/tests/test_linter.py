@@ -78,6 +78,19 @@ def test_microsite_cta_linked():
     assert cta and cta.text.strip() and cta.get("href")
 
 
+def test_microsite_sections_have_body():
+    for sec in _soup("index.html").find_all("section"):
+        p = sec.find("p")
+        assert p and p.get_text(strip=True), f"empty section body under: {sec.find('h2')}"
+
+
+def test_microsite_cta_anchor_resolves():
+    soup = _soup("index.html")
+    href = soup.select_one("a.cta").get("href", "").strip()
+    if href.startswith("#") and href != "#":  # a fragment must point at a real element
+        assert soup.find(id=href[1:]), f"CTA href {href} has no matching id"
+
+
 def test_no_dangerous_href_schemes():
     for page in ("index.html", "styleguide.html"):
         for a in _soup(page).find_all("a"):

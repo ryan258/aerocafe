@@ -111,6 +111,18 @@ def _safe_href(href) -> str:
     return "#"  # blocks javascript:, data:, etc.
 
 
+def _cta_href(href, section_ids: list[str]) -> str:
+    """Keep safe external/mailto hrefs; resolve a #fragment to a real section id (or the
+    first section) so the CTA always lands somewhere instead of a dead anchor."""
+    href = _safe_href(href)
+    if href.startswith("#") and href != "#":
+        frag = href[1:]
+        if frag in section_ids:
+            return href
+        return f"#{section_ids[0]}" if section_ids else "#"
+    return href
+
+
 # Logo-safe SVG subset (plus any "fe…" filter primitive). Anything outside it — script,
 # image, foreignObject, a, animate*, … — is rejected, not scrubbed, so it never reaches
 # |safe. <use>/<textPath> are allowed but their href is restricted to internal #ids
@@ -306,7 +318,10 @@ def render(spec: dict) -> tuple[Path, str, str]:
     guide = env.get_template("styleguide.html").render(b=spec, **ctx)
     (d / "styleguide.html").write_text(guide)
 
-    ms = {**spec["microsite"], "cta_href": _safe_href(spec["microsite"].get("cta_href"))}
+    ms = {**spec["microsite"]}
+    sections = [dict(s, id=_slug(s.get("title", ""))) for s in ms.get("sections", [])]
+    ms["sections"] = sections
+    ms["cta_href"] = _cta_href(ms.get("cta_href"), [s["id"] for s in sections])
     site = env.get_template("layout.html").render(title=spec["name"], **ms, **ctx)
     (d / "index.html").write_text(site)
     return d, guide, site

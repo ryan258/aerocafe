@@ -54,7 +54,7 @@
     <h1>{{ headline }}</h1>
     <p class="sub">{{ subhead }}</p>
     {% for s in sections %}
-    <section>
+    <section id="{{ s.id }}">
       <h2>{{ s.title }}</h2>
       <p>{{ s.body }}</p>
     </section>
